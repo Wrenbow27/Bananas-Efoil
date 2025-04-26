@@ -9,9 +9,9 @@ local trim_max = 1900
 local elevator_channel = 11  -- Servo channel for elevator
 
 local script_period = param:get("SCR_USER1")
-local low_position = 0.2
-local med_position = 0.5
-local high_position = 0.8
+local low_position = 0.78
+local med_position = 0.46
+local high_position = 0.23
 local position_target = 0
 local integral_total = 0
 local integral_N = math.floor(param:get("SCR_USER3")/script_period)
@@ -19,6 +19,7 @@ local integral_arr = {}
 for i = 1, integral_N do integral_arr[i] = 0 end
 local integral_i = 1
 local true_trim = param:get("SCR_USER2")
+local pitch_trim = true_trim
 
 local millis = 0
 local log_mode = 0 --stopped
@@ -26,6 +27,9 @@ local log_file_name = "ride_height_log.csv"
 local file = io.open(log_file_name, "w")
 file:write("Time,Desired,Actual\n")
 file:close()
+
+local control_enabled = false
+local control_button_pressed = false
 
 local function rc_pwm_round(channel)
   local pwm = rc:get_pwm(channel)
@@ -42,7 +46,7 @@ local function aux_inputs()
   if rc5 == 1900 then 
     log_mode = 0  --stopped
   elseif rc5 == 1500 then
-    if log_mode == "stopped" then
+    if log_mode == 0 then
       local file = io.open(log_file_name, "w")
       file:write("Time,Desired,Actual\n")
       file:close()
@@ -53,7 +57,12 @@ local function aux_inputs()
   end
 
   if rc6 == 1100 then
-    --boot:reboot()
+    if (not control_button_pressed) then
+      control_enabled = not(control_enabled)
+    end
+    control_button_pressed = true
+  else
+    control_button_pressed = false
   end
   
   if rc7 == 1900 
@@ -106,13 +115,18 @@ function update()
   end
   
   local effort = k_p*(position_error/100) + k_i*(integral_total/(100*integral_N))
-  local pitch_trim = effort_to_trim(effort)
+  if control_enabled then
+    pitch_trim = effort_to_trim(effort)
+  else
+    pitch_trim = true_trim
+  end
+  
   param:set('SERVO' .. elevator_channel .. '_TRIM', pitch_trim)
-  --gcs:send_text(0, string.format("Trim_Value: %d",pitch_trim))
+  --gcs:send_text(0, string.format("Position: %f",position))
   
   millis = millis + script_period
   return update, script_period
 end
 
-gcs:send_text(0, "**V1.2.3** Elevator trim control script running")
+gcs:send_text(0, "**V1.2.4** EFoil height control script running")
 return update()
