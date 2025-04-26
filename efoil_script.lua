@@ -4,8 +4,8 @@ local reverse_potentiometer = 1 --1 or 0 for reversed state
 
 local min_voltage = 1.1990
 local max_voltage = 1.3840
-local trim_min = 1100
-local trim_max = 1900
+local trim_min = param:get("SERVO11_MIN")
+local trim_max = param:get("SERVO11_MAX")
 local elevator_channel = 11  -- Servo channel for elevator
 
 local script_period = param:get("SCR_USER1")
@@ -97,7 +97,8 @@ local function voltage_to_position(voltage)
 end
 
 local function effort_to_trim(effort)
-  return math.floor(true_trim + 400*effort)
+  local pre_trim = math.floor(true_trim + (trim_max-trim_min)*effort/2)
+  return math.min(math.max(pre_trim, trim_min), trim_max)
 end
 
 function update()
